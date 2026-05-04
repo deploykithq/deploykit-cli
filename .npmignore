@@ -1,0 +1,12 @@
+src
+scripts
+tsconfig.json
+.gitignore
+.editorconfig
+.github
+*.log
+coverage
+test
+tests
+.env
+.env.*

@@ -1,0 +1,87 @@
+#!/usr/bin/env node
+import { Command } from "commander";
+
+import { runUninstall } from "../commands/uninstall.js";
+import { runRestart } from "../commands/restart.js";
+import { runInstall } from "../commands/install.js";
+import { runStatus } from "../commands/status.js";
+import { runUpdate } from "../commands/update.js";
+import { runLogs } from "../commands/logs.js";
+
+import {
+  DEPLOYKIT_BRANCH_DEFAULT,
+  DEPLOYKIT_DIR_DEFAULT,
+} from "../constants.js";
+
+const VERSION = "0.1.0";
+
+const program = new Command();
+
+program
+  .name("deploykit")
+  .description(
+    "Install and manage a self-hosted DeployKit instance on a Linux VPS.",
+  )
+  .version(VERSION);
+
+program
+  .command("install")
+  .description("Install DeployKit on this machine")
+  .option("--domain <domain>", "Dashboard domain (e.g. deploy.example.com)")
+  .option("--email <email>", "Let's Encrypt email")
+  .option("--admin-email <email>", "Pre-create admin account")
+  .option("--admin-password <password>", "Admin password (min 8 chars)")
+  .option("--dir <path>", "Install directory", DEPLOYKIT_DIR_DEFAULT)
+  .option("--branch <branch>", "Git branch", DEPLOYKIT_BRANCH_DEFAULT)
+  .action(async (opts) => {
+    await runInstall(opts);
+  });
+
+program
+  .command("update")
+  .description("Pull latest, rebuild, and restart")
+  .option("--dir <path>", "Install directory", DEPLOYKIT_DIR_DEFAULT)
+  .option("--branch <branch>", "Git branch", DEPLOYKIT_BRANCH_DEFAULT)
+  .action(async (opts) => {
+    await runUpdate(opts);
+  });
+
+program
+  .command("uninstall")
+  .description("Stop services and remove DeployKit")
+  .option("--dir <path>", "Install directory", DEPLOYKIT_DIR_DEFAULT)
+  .option("-y, --yes", "Skip confirmation prompt")
+  .option("--delete-data", "Also delete database volumes and backups")
+  .action(async (opts) => {
+    await runUninstall(opts);
+  });
+
+program
+  .command("status")
+  .description("Show container status")
+  .option("--dir <path>", "Install directory", DEPLOYKIT_DIR_DEFAULT)
+  .action(async (opts) => {
+    await runStatus(opts);
+  });
+
+program
+  .command("logs")
+  .description("Stream live logs from all services")
+  .option("--dir <path>", "Install directory", DEPLOYKIT_DIR_DEFAULT)
+  .action(async (opts) => {
+    await runLogs(opts);
+  });
+
+program
+  .command("restart")
+  .description("Restart all DeployKit services")
+  .option("--dir <path>", "Install directory", DEPLOYKIT_DIR_DEFAULT)
+  .action(async (opts) => {
+    await runRestart(opts);
+  });
+
+program.parseAsync(process.argv).catch((err: unknown) => {
+  const message = err instanceof Error ? err.message : String(err);
+  console.error(`\n  ✗ ${message}\n`);
+  process.exit(1);
+});
