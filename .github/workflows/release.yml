@@ -3,6 +3,18 @@ name: Release
 on:
   push:
     branches: [master]
+  # Escape hatch for re-publishing a tag release-please already cut — e.g. when
+  # a publish failed for a transient reason. Re-running the failed job is not
+  # enough: GitHub replays the workflow file from the commit that triggered it,
+  # so a fix landed afterwards would not apply. npm's Trusted Publisher is
+  # registered against this workflow file, so publishing has to stay in here
+  # rather than move to a workflow of its own.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing release tag to publish to npm (e.g. v0.2.0)"
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -16,6 +28,7 @@ concurrency:
 jobs:
   release-please:
     name: Release PR / GitHub Release
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
 
     outputs:
@@ -34,7 +47,13 @@ jobs:
   publish:
     name: Publish to npm
     needs: release-please
-    if: needs.release-please.outputs.release_created == 'true'
+    # always() keeps this job reachable on workflow_dispatch, where
+    # release-please is skipped and would otherwise skip everything downstream.
+    if: |
+      always() && (
+        (github.event_name == 'push' && needs.release-please.outputs.release_created == 'true')
+        || github.event_name == 'workflow_dispatch'
+      )
     runs-on: ubuntu-latest
 
     permissions:
@@ -50,7 +69,7 @@ jobs:
       - name: Checkout release tag
         uses: actions/checkout@v4
         with:
-          ref: ${{ needs.release-please.outputs.tag_name }}
+          ref: ${{ inputs.tag || needs.release-please.outputs.tag_name }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -59,10 +78,11 @@ jobs:
           cache: npm
           registry-url: https://registry.npmjs.org
 
-      # Node 20 ships npm 10, which predates Trusted Publishing. Without this
-      # the publish fails on OIDC with an unhelpful authentication error.
+      # Node 20 ships npm 10, which predates Trusted Publishing (added in npm
+      # 11.5.1). Pin the major: npm@latest is npm 12, which requires Node >=
+      # 22.22 and refuses to install here.
       - name: Upgrade npm for Trusted Publishing
-        run: npm install -g npm@latest
+        run: npm install -g npm@11
 
       - name: Install dependencies
         run: npm ci
