@@ -10,7 +10,9 @@ import { runLogs } from "../commands/logs.js";
 
 import { DEPLOYKIT_DIR_DEFAULT } from "../constants.js";
 
-const VERSION = "0.1.1";
+// Bumped by release-please on every release — keep the trailing annotation,
+// it is what holds this in sync with package.json. Do not edit by hand.
+const VERSION = "0.1.0"; // x-release-please-version
 
 const program = new Command();
 

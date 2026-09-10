@@ -143,13 +143,32 @@ npm test                         # vitest
 
 The CLI itself is pure Node (no shell scripts) so you can lint and build it from any OS, but the runtime ops (Docker, systemctl, apt-get) only succeed on Linux.
 
-## Publishing
+## Releasing
 
-```bash
-npm login
-npm version patch    # or minor / major
-npm publish --access public
-```
+Releases are automated. Do not run `npm version` or `npm publish` by hand — a
+manual bump desyncs `.release-please-manifest.json`, and the next automated
+release then fights it.
+
+1. Merge a PR into `master` with a [Conventional Commits](https://www.conventionalcommits.org/)
+   title (`feat:`, `fix:`, `perf:`, `refactor:`, `docs:`, ...). PRs are
+   squash-merged, so the PR title becomes the commit that drives the changelog;
+   a CI check enforces the format.
+2. [release-please](https://github.com/googleapis/release-please) keeps a
+   `chore(master): release X.Y.Z` PR open, accumulating the changelog entries
+   and the version bump.
+3. Merging that PR creates the `vX.Y.Z` tag and the GitHub Release, and the
+   `publish` job ships the package to npm.
+
+`feat:` bumps the minor, `fix:` the patch, and a `!` or a `BREAKING CHANGE:`
+footer bumps the major. While the package is pre-1.0, breaking changes bump the
+minor instead.
+
+The version lives in `package.json`; `VERSION` in `src/bin/deploykit.ts` carries
+an `x-release-please-version` annotation so the two never drift.
+
+npm publishing uses [Trusted Publishing](https://docs.npmjs.com/trusted-publishers) —
+the workflow authenticates through GitHub's OIDC provider, so there is no
+`NPM_TOKEN` secret to rotate and every release ships with provenance.
 
 `prepublishOnly` runs `clean && build`. The published tarball only includes `dist/`, `README.md`, and `LICENSE`.
 
