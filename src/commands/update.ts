@@ -1,6 +1,7 @@
 import { composeBuild, composeUp, containerExec } from "../lib/docker.js";
 import { ensureLinux, ensureRoot } from "../lib/system.js";
 import { pullLatest, stripCrlf } from "../lib/git.js";
+import { describeRef, resolveRef } from "../lib/version.js";
 import { bold, info, log, warn } from "../lib/ui.js";
 import { pollUntil } from "../lib/wait.js";
 
@@ -8,13 +9,14 @@ import {
   API_CONTAINER,
   API_READY_ATTEMPTS,
   COMPOSE_FILE,
-  DEPLOYKIT_BRANCH_DEFAULT,
   DEPLOYKIT_DIR_DEFAULT,
+  DEPLOYKIT_REPO,
   HEALTH_POLL_INTERVAL_MS,
 } from "../constants.js";
 
 export interface IUpdateOptions {
   dir?: string;
+  tag?: string;
   branch?: string;
 }
 
@@ -23,12 +25,20 @@ export const runUpdate = async (raw: IUpdateOptions): Promise<void> => {
   ensureRoot();
 
   const dir = raw.dir ?? DEPLOYKIT_DIR_DEFAULT;
-  const branch = raw.branch ?? DEPLOYKIT_BRANCH_DEFAULT;
 
   console.log(`\n${bold("Updating DeployKit...")}\n`);
 
-  info("Pulling latest changes...");
-  await pullLatest(dir, branch);
+  const ref = await resolveRef(DEPLOYKIT_REPO, {
+    tag: raw.tag,
+    branch: raw.branch,
+  });
+  if (ref.source === "fallback") {
+    warn("No released version found — falling back to the default branch.");
+  }
+  log(describeRef(ref));
+
+  info(`Fetching ${ref.ref}...`);
+  await pullLatest(dir, ref);
   await stripCrlf(dir);
 
   info("Rebuilding images...");

@@ -26,23 +26,61 @@ export const ensureGit = async (): Promise<void> => {
   log("Git installed");
 };
 
-export interface ICloneOptions {
+export interface ICheckoutTarget {
+  ref: string;
+  isTag: boolean;
+}
+
+export interface ICloneOptions extends ICheckoutTarget {
   repo: string;
-  branch: string;
   dir: string;
 }
+
+/**
+ * Moves an existing checkout onto `ref`. Tags need an explicit refspec so a
+ * moved or re-cut tag overwrites the stale local one instead of being kept.
+ */
+const fetchRef = async (
+  dir: string,
+  target: ICheckoutTarget,
+): Promise<boolean> => {
+  const args = target.isTag
+    ? [
+        "fetch",
+        "--depth",
+        "1",
+        "--force",
+        "origin",
+        `refs/tags/${target.ref}:refs/tags/${target.ref}`,
+      ]
+    : ["fetch", "origin", target.ref];
+
+  const fetched = await run("git", args, { cwd: dir });
+  return fetched.exitCode === 0;
+};
+
+const resetToRef = async (
+  dir: string,
+  target: ICheckoutTarget,
+): Promise<boolean> => {
+  const revision = target.isTag ? `refs/tags/${target.ref}` : `origin/${target.ref}`;
+  const reset = await run("git", ["reset", "--hard", revision], { cwd: dir });
+  return reset.exitCode === 0;
+};
 
 export const cloneOrUpdate = async (opts: ICloneOptions): Promise<void> => {
   const gitDir = join(opts.dir, ".git");
   if (existsSync(gitDir)) {
     info("Existing installation found — updating...");
-    const fetched = await run("git", ["fetch", "origin", opts.branch], { cwd: opts.dir });
-    if (fetched.exitCode !== 0) {
+    if (!(await fetchRef(opts.dir, opts))) {
       warn("Git update failed — using existing code.");
       return;
     }
-    await run("git", ["reset", "--hard", `origin/${opts.branch}`], { cwd: opts.dir });
-    log("Updated to latest");
+    if (!(await resetToRef(opts.dir, opts))) {
+      warn("Git update failed — using existing code.");
+      return;
+    }
+    log(`Updated to ${opts.ref}`);
     return;
   }
 
@@ -55,14 +93,14 @@ export const cloneOrUpdate = async (opts: ICloneOptions): Promise<void> => {
     "--depth",
     "1",
     "--branch",
-    opts.branch,
+    opts.ref,
     opts.repo,
     opts.dir,
   ]);
   if (cloned.exitCode !== 0) {
     fail("Clone failed. Check your internet connection.");
   }
-  log(`Downloaded to ${opts.dir}`);
+  log(`Downloaded ${opts.ref} to ${opts.dir}`);
 };
 
 export const stripCrlf = async (dir: string): Promise<void> => {
@@ -72,9 +110,10 @@ export const stripCrlf = async (dir: string): Promise<void> => {
   ], { cwd: dir });
 };
 
-export const pullLatest = async (dir: string, branch: string): Promise<void> => {
-  const fetched = await run("git", ["fetch", "origin", branch], { cwd: dir });
-  if (fetched.exitCode !== 0) fail("Pull failed.");
-  const reset = await run("git", ["reset", "--hard", `origin/${branch}`], { cwd: dir });
-  if (reset.exitCode !== 0) fail("Pull failed.");
+export const pullLatest = async (
+  dir: string,
+  target: ICheckoutTarget,
+): Promise<void> => {
+  if (!(await fetchRef(dir, target))) fail("Pull failed.");
+  if (!(await resetToRef(dir, target))) fail("Pull failed.");
 };

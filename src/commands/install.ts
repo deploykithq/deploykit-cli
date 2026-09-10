@@ -6,7 +6,6 @@ import {
   API_READY_ATTEMPTS,
   BACKUP_DIR,
   COMPOSE_FILE,
-  DEPLOYKIT_BRANCH_DEFAULT,
   DEPLOYKIT_DIR_DEFAULT,
   DEPLOYKIT_REPO,
   HEALTH_POLL_INTERVAL_MS,
@@ -25,6 +24,7 @@ import {
 } from "../lib/docker.js";
 import { cloneOrUpdate, ensureGit, stripCrlf } from "../lib/git.js";
 import { envExists, updateEnvDomain, writeFreshEnv } from "../lib/env.js";
+import { describeRef, resolveRef } from "../lib/version.js";
 import {
   collectSystemInfo,
   ensureLinux,
@@ -49,6 +49,7 @@ export interface IInstallOptions {
   adminEmail?: string;
   adminPassword?: string;
   dir?: string;
+  tag?: string;
   branch?: string;
 }
 
@@ -58,14 +59,14 @@ interface IResolvedOptions {
   adminEmail: string;
   adminPassword: string;
   dir: string;
-  branch: string;
+  tag?: string;
+  branch?: string;
 }
 
 const resolveOptions = async (
   raw: IInstallOptions,
 ): Promise<IResolvedOptions> => {
   const dir = raw.dir ?? DEPLOYKIT_DIR_DEFAULT;
-  const branch = raw.branch ?? DEPLOYKIT_BRANCH_DEFAULT;
 
   let { domain, email, adminEmail, adminPassword } = raw;
 
@@ -121,7 +122,8 @@ const resolveOptions = async (
     adminEmail: adminEmail ?? "",
     adminPassword: adminPassword ?? "",
     dir,
-    branch,
+    tag: raw.tag,
+    branch: raw.branch,
   };
 };
 
@@ -158,17 +160,28 @@ export const runInstall = async (raw: IInstallOptions): Promise<void> => {
   log(`Domain: ${opts.domain}`);
   log(`Email:  ${opts.email}`);
 
-  step({ current: 2, total: TOTAL_STEPS }, "Docker");
+  // Git comes first now: resolving the version needs it, and a bad --tag
+  // should fail before the multi-minute Docker install rather than after it.
+  step({ current: 2, total: TOTAL_STEPS }, "Git");
+  await ensureGit();
+  const ref = await resolveRef(DEPLOYKIT_REPO, {
+    tag: opts.tag,
+    branch: opts.branch,
+  });
+  if (ref.source === "fallback") {
+    warn("No released version found — falling back to the default branch.");
+  }
+  log(describeRef(ref));
+
+  step({ current: 3, total: TOTAL_STEPS }, "Docker");
   await ensureDocker();
   await ensureCompose();
-
-  step({ current: 3, total: TOTAL_STEPS }, "Git");
-  await ensureGit();
 
   step({ current: 4, total: TOTAL_STEPS }, "Downloading DeployKit");
   await cloneOrUpdate({
     repo: DEPLOYKIT_REPO,
-    branch: opts.branch,
+    ref: ref.ref,
+    isTag: ref.isTag,
     dir: opts.dir,
   });
   await stripCrlf(opts.dir);

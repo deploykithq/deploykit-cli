@@ -53,16 +53,38 @@ sudo deploykit install \
 | `--admin-email <email>` | Pre-create admin account | — |
 | `--admin-password <pwd>` | Admin password, min 8 chars | — |
 | `--dir <path>` | Install directory | `/opt/deploykit` |
-| `--branch <branch>` | Git branch to install | `master` |
+| `--tag <tag>` | Install a specific release, e.g. `v0.2.0` | latest release |
+| `--branch <branch>` | Install from a Git branch instead of a release | — |
 
 If `--domain` and `--email` are omitted in a TTY, the CLI drops into interactive prompts.
 
-### `deploykit update`
+#### Which version gets installed
 
-Pulls the latest commit, rebuilds the images, and restarts the stack.
+By default the CLI installs the **latest released version** — it reads the tags
+from the DeployKit repository, picks the highest semver tag, and checks that out.
+Pre-releases (`v1.2.0-rc.1`) are ignored.
 
 ```bash
-sudo deploykit update
+sudo deploykit install --domain deploy.example.com --email you@example.com  # latest release
+sudo deploykit install --tag v0.2.0 ...                                     # pin a release
+sudo deploykit install --branch master ...                                  # unreleased code
+```
+
+The `v` prefix is optional, so `--tag 0.2.0` and `--tag v0.2.0` are equivalent.
+An unknown tag fails immediately and lists the tags that do exist. If the
+repository has no released version at all, the CLI warns and falls back to
+`master`.
+
+### `deploykit update`
+
+Moves the installation to the latest released version, rebuilds the images, and
+restarts the stack. Takes the same `--tag` and `--branch` flags as `install`, so
+you can pin or roll back to a specific release.
+
+```bash
+sudo deploykit update                 # latest release
+sudo deploykit update --tag v0.2.0    # pin (or roll back) to a release
+sudo deploykit update --branch master # track unreleased code
 ```
 
 ### `deploykit status`
@@ -116,6 +138,7 @@ npm install
 npm run dev -- install --help    # run from source
 npm run build                    # compile to dist/
 npm run lint                     # tsc --noEmit
+npm test                         # vitest
 ```
 
 The CLI itself is pure Node (no shell scripts) so you can lint and build it from any OS, but the runtime ops (Docker, systemctl, apt-get) only succeed on Linux.

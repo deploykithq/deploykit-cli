@@ -8,12 +8,9 @@ import { runStatus } from "../commands/status.js";
 import { runUpdate } from "../commands/update.js";
 import { runLogs } from "../commands/logs.js";
 
-import {
-  DEPLOYKIT_BRANCH_DEFAULT,
-  DEPLOYKIT_DIR_DEFAULT,
-} from "../constants.js";
+import { DEPLOYKIT_DIR_DEFAULT } from "../constants.js";
 
-const VERSION = "0.1.0";
+const VERSION = "0.1.1";
 
 const program = new Command();
 
@@ -32,16 +29,18 @@ program
   .option("--admin-email <email>", "Pre-create admin account")
   .option("--admin-password <password>", "Admin password (min 8 chars)")
   .option("--dir <path>", "Install directory", DEPLOYKIT_DIR_DEFAULT)
-  .option("--branch <branch>", "Git branch", DEPLOYKIT_BRANCH_DEFAULT)
+  .option("--tag <tag>", "Install a specific release (default: latest release)")
+  .option("--branch <branch>", "Install from a Git branch instead of a release")
   .action(async (opts) => {
     await runInstall(opts);
   });
 
 program
   .command("update")
-  .description("Pull latest, rebuild, and restart")
+  .description("Update to the latest release, rebuild, and restart")
   .option("--dir <path>", "Install directory", DEPLOYKIT_DIR_DEFAULT)
-  .option("--branch <branch>", "Git branch", DEPLOYKIT_BRANCH_DEFAULT)
+  .option("--tag <tag>", "Update to a specific release (default: latest release)")
+  .option("--branch <branch>", "Track a Git branch instead of a release")
   .action(async (opts) => {
     await runUpdate(opts);
   });
