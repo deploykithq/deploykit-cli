@@ -1,6 +1,6 @@
 {
   "name": "@deploykit/cli",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Install, update, and manage a self-hosted DeployKit instance on a Linux VPS.",
   "keywords": [
     "deploykit",

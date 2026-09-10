@@ -12,7 +12,7 @@ import { DEPLOYKIT_DIR_DEFAULT } from "../constants.js";
 
 // Bumped by release-please on every release — keep the trailing annotation,
 // it is what holds this in sync with package.json. Do not edit by hand.
-const VERSION = "0.1.0"; // x-release-please-version
+const VERSION = "0.2.0"; // x-release-please-version
 
 const program = new Command();
 
